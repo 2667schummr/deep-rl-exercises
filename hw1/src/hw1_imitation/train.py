@@ -12,6 +12,7 @@ import torch
 import tyro
 import wandb
 from torch.utils.data import DataLoader
+from evaluation import evaluate_policy
 
 from hw1_imitation.data import (
     Normalizer,
@@ -129,12 +130,28 @@ def run_training(config: TrainConfig) -> None:
 
     ### TODO: PUT YOUR MAIN TRAINING LOOP HERE ###
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
-    for state, action_chunk in loader:
-        optimizer.zero_grad()
-        loss = model.compute_loss(state, action_chunk)
-        loss.backward()
-        optimizer.step()
+    model = torch.compile(model)
+    for epoch in range(config.num_epochs):
+        for state, action_chunk in loader:
+            optimizer.zero_grad()
+            
+            state = state.to(device)
+            action_chunk = action_chunk.to(device)
 
+            loss = model.compute_loss(state, action_chunk)
+            loss.backward()
+
+            optimizer.step()
+        
+        print(f"Complted epoch: {epoch}")
+        if epoch % 100 == 0:
+            evaluate_policy(
+                model, normalizer, device, config.chunk_size,
+                config.video_size, config.num_video_episodes,
+                config.flow_num_steps, (epoch + 1)*len(loader),
+                logger
+            )
+        
     logger.dump_for_grading()
 
 
