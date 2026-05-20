@@ -14,6 +14,8 @@ checkpoints/
 videos/
 *.zip
 exp/
+data/
+.vscode
 
 # Modal logs/artifacts
 modal_volume/
