@@ -63,7 +63,14 @@ class MLPPolicy(nn.Module):
         if self.discrete:
             logits = self.logits_net(ptu.from_numpy(obs))
             action = distributions.Categorical(logits=logits).sample()
-            action = ptu.to_numpy(action)
+        else:
+            means = self.mean_net(ptu.from_numpy(obs))
+            covar_matrix = torch.diag(
+                torch.exp(self.logstd)
+            )
+            action = distributions.MultivariateNormal(means, covar_matrix).sample()
+        
+        action = ptu.to_numpy(action)
 
         return action
 
@@ -104,7 +111,17 @@ class MLPPolicyPG(MLPPolicy):
 
         # TODO: compute the policy gradient actor loss
         self.optimizer.zero_grad()
-        dist = distributions.Categorical(logits=self.logits_net(obs))
+        
+        if self.discrete:
+            logits = self.logits_net(obs)
+            dist = distributions.Categorical(logits=logits)
+        else:
+            means = self.mean_net(obs)
+            covar_matrix = torch.diag(
+                torch.exp(self.logstd)
+            )
+            dist = distributions.MultivariateNormal(means, covar_matrix)
+        
         log_probs = dist.log_prob(actions.long())
         loss = -torch.mean(log_probs * advantages)
 

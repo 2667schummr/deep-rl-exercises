@@ -85,7 +85,10 @@ class PGAgent(nn.Module):
         # step 4: if needed, use all datapoints (s_t, a_t, q_t) to update the PG critic/baseline
         if self.critic is not None:
             # TODO: perform `self.baseline_gradient_steps` updates to the critic/baseline network
-            critic_info = None
+            critic_info = [
+                self.critic.update(obs, q_values) 
+                for _ in range(self.baseline_gradient_steps)
+            ]
 
             info.update(critic_info)
 
@@ -111,13 +114,17 @@ class PGAgent(nn.Module):
         Helper function which takes a list of rewards {r_0, r_1, ..., r_t', ... r_T} and returns a list where the entry
         in each index t is sum_{t'=t}^T gamma^(t'-t) * r_{t'}.
         """
-        # traj_len = len(rewards)
-        # scaled_rewards = self.gamma**np.arange(traj_len)*rewards
-        # scaled_rewards *= self.gamma**
-        # total_reward = np.array([scaled_rewards.sum()]*traj_len)
+        traj_len = len(rewards)
+        total_reward = []
+        for j in range(traj_len):
+            gamma_vec = self.gamma**(np.arange(traj_len - j))
+            total_reward.append(
+                np.sum(gamma_vec*rewards[j:])
+            )
         
-        # return total_reward
-        return None
+        total_reward = np.array(total_reward)
+        
+        return total_reward
 
     def _calculate_q_vals(self, rewards: Sequence[np.ndarray]) -> Sequence[np.ndarray]:
         """Monte Carlo estimation of the Q function."""
@@ -132,7 +139,7 @@ class PGAgent(nn.Module):
             # Case 2: in reward-to-go PG, we only use the rewards after timestep t to estimate the Q-value for (s_t, a_t).
             # In other words: Q(s_t, a_t) = sum_{t'=t}^T gamma^(t'-t) * r_{t'}
             # TODO: use the helper function self._discounted_reward_to_go to calculate the Q-values
-            q_values = None
+            q_values = [self._discounted_reward_to_go(reward_arr) for reward_arr in rewards]
 
         return q_values
 
@@ -152,12 +159,12 @@ class PGAgent(nn.Module):
             advantages = q_values
         else:
             # TODO: run the critic and use it as a baseline
-            values = None
+            values = self.critic(ptu.from_numpy(obs))
             assert values.shape == q_values.shape
 
             if self.gae_lambda is None:
                 # TODO: if using a baseline, but not GAE, what are the advantages?
-                advantages = None
+                advantages = q_values - values
             else:
                 # TODO: implement GAE
                 batch_size = obs.shape[0]
