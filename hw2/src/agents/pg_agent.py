@@ -85,10 +85,8 @@ class PGAgent(nn.Module):
         # step 4: if needed, use all datapoints (s_t, a_t, q_t) to update the PG critic/baseline
         if self.critic is not None:
             # TODO: perform `self.baseline_gradient_steps` updates to the critic/baseline network
-            critic_info = [
-                self.critic.update(obs, q_values) 
-                for _ in range(self.baseline_gradient_steps)
-            ]
+            for _ in range(self.baseline_gradient_steps):
+                critic_info = self.critic.update(obs, q_values)
 
             info.update(critic_info)
 
@@ -160,6 +158,7 @@ class PGAgent(nn.Module):
         else:
             # TODO: run the critic and use it as a baseline
             values = self.critic(ptu.from_numpy(obs))
+            values = ptu.to_numpy(values)
             assert values.shape == q_values.shape
 
             if self.gae_lambda is None:

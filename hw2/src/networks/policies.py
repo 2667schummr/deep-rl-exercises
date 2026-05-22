@@ -60,16 +60,8 @@ class MLPPolicy(nn.Module):
     def get_action(self, obs: np.ndarray) -> np.ndarray:
         """Takes a single observation (as a numpy array) and returns a single action (as a numpy array)."""
         # TODO: implement get_action
-        if self.discrete:
-            logits = self.logits_net(ptu.from_numpy(obs))
-            action = distributions.Categorical(logits=logits).sample()
-        else:
-            means = self.mean_net(ptu.from_numpy(obs))
-            covar_matrix = torch.diag(
-                torch.exp(self.logstd)
-            )
-            action = distributions.MultivariateNormal(means, covar_matrix).sample()
-        
+        dist = self(ptu.from_numpy(obs))
+        action = dist.sample()
         action = ptu.to_numpy(action)
 
         return action
@@ -81,11 +73,13 @@ class MLPPolicy(nn.Module):
         flexible objects, such as a `torch.distributions.Distribution` object. It's up to you!
         """
         if self.discrete:
-            # TODO: define the forward pass for a policy with a discrete action space.
-            return self.logits_net(obs)
+            logits = self.logits_net(obs)
+            dist = distributions.Categorical(logits=logits)
         else:
-            # TODO: define the forward pass for a policy with a continuous action space.
-            pass
+            means = self.mean_net(obs)
+            dist = distributions.Normal(means, torch.exp(self.logstd))
+        
+        return dist
 
     def update(self, obs: np.ndarray, actions: np.ndarray, *args, **kwargs) -> dict:
         """
@@ -112,17 +106,10 @@ class MLPPolicyPG(MLPPolicy):
         # TODO: compute the policy gradient actor loss
         self.optimizer.zero_grad()
         
-        if self.discrete:
-            logits = self.logits_net(obs)
-            dist = distributions.Categorical(logits=logits)
-        else:
-            means = self.mean_net(obs)
-            covar_matrix = torch.diag(
-                torch.exp(self.logstd)
-            )
-            dist = distributions.MultivariateNormal(means, covar_matrix)
-        
-        log_probs = dist.log_prob(actions.long())
+        dist = self(obs)
+        log_probs = dist.log_prob(actions)
+        if not self.discrete:
+            log_probs = log_probs.sum(dim=-1)
         loss = -torch.mean(log_probs * advantages)
 
         # TODO: perform an optimizer step
