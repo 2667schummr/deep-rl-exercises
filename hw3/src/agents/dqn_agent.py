@@ -48,7 +48,13 @@ class DQNAgent(nn.Module):
         observation = ptu.from_numpy(np.asarray(observation))[None]
 
         # TODO(Section 2.4): get the action from the critic using an epsilon-greedy strategy
-        action = None
+        if torch.rand(1) < epsilon:
+            action = torch.randint(
+                0, self.num_actions, size=(1,), device=ptu.device
+            )
+        else:
+            action = self.critic(observation).argmax()
+
         # ENDTODO
 
         return ptu.to_numpy(action).squeeze(0).item()
@@ -67,7 +73,7 @@ class DQNAgent(nn.Module):
         # Compute target values
         with torch.no_grad():
             # TODO(Section 2.4): compute target values
-            next_qa_values = None
+            next_qa_values = self.target_critic(next_obs).max(dim=1)
 
             if self.use_double_q:
                 # TODO(Section 2.5): implement double-Q target action selection
@@ -75,17 +81,17 @@ class DQNAgent(nn.Module):
             else:
                 next_action = None
 
-            next_q_values = None
+            next_q_values = next_qa_values[0]
             assert next_q_values.shape == (batch_size,), next_q_values.shape
 
-            target_values = None
+            target_values = reward + self.discount*next_q_values*(~done)
             assert target_values.shape == (batch_size,), target_values.shape
             # ENDTODO
 
         # TODO(Section 2.4): train the critic with the target values
-        qa_values = None
-        q_values = None
-        loss = None
+        qa_values = self.critic(obs)
+        q_values = qa_values[torch.arange(qa_values.shape[0]), action]
+        loss = self.critic_loss(q_values, target_values)
         # ENDTODO
 
         self.critic_optimizer.zero_grad()
@@ -120,7 +126,11 @@ class DQNAgent(nn.Module):
         Update the DQN agent, including both the critic and target.
         """
         # TODO(Section 2.4): update the critic, and the target if needed
-        critic_stats = None
+        critic_stats = self.update_critic(obs, action, reward, next_obs, done)
+        
+        if step % self.target_update_period == 0:
+            self.update_target_critic()
+
         # Hint: if step % self.target_update_period == 0: ...
         # ENDTODO
 
