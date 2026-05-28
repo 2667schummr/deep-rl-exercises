@@ -73,15 +73,15 @@ class DQNAgent(nn.Module):
         # Compute target values
         with torch.no_grad():
             # TODO(Section 2.4): compute target values
-            next_qa_values = self.target_critic(next_obs).max(dim=1)
+            next_qa_values = self.target_critic(next_obs)
 
             if self.use_double_q:
                 # TODO(Section 2.5): implement double-Q target action selection
-                next_action = None
+                next_action = self.critic(next_obs).argmax(dim=1)
             else:
-                next_action = None
+                next_action = next_qa_values.argmax(dim=1)
 
-            next_q_values = next_qa_values[0]
+            next_q_values = next_qa_values[torch.arange(obs.shape[0]), next_action]
             assert next_q_values.shape == (batch_size,), next_q_values.shape
 
             target_values = reward + self.discount*next_q_values*(~done)
