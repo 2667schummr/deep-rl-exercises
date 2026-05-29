@@ -252,8 +252,8 @@ class SoftActorCritic(nn.Module):
         # TODO(Section 3.3): Compute the entropy of the action distribution.
         # Note: Think about whether to use .rsample() or .sample() here...
         action_sample = action_distribution.rsample()
-        entropy = -action_distribution.log_prob(action_sample).mean()
-        
+        entropy = -action_distribution.log_prob(action_sample)
+
         return entropy
         # ENDTODO
 
@@ -290,7 +290,7 @@ class SoftActorCritic(nn.Module):
         loss, entropy, log_prob = self.actor_loss_reparametrize(obs)
 
         # TODO(Section 3.3): Add the entropy bonus to the actor loss: loss -= [your entropy bonus here]
-        loss -= self.temperature*entropy
+        loss -= self.temperature*entropy.mean()
         # ENDTODO
 
         self.actor_optimizer.zero_grad()
