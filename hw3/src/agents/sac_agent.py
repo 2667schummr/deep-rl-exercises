@@ -167,7 +167,7 @@ class SoftActorCritic(nn.Module):
         if self.target_critic_backup_type == "mean":
             next_qs = next_qs.mean(dim=0)
         elif self.target_critic_backup_type == "min":
-            next_qs = None
+            next_qs = next_qs.amin(dim=0)
         else:
             raise ValueError(
                 f"Invalid critic backup strategy {self.target_critic_backup_type}"
